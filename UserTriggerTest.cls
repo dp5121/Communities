@@ -1,39 +1,52 @@
 @isTest
 public class UserTriggerTest {
     
-    public static Id communityProfileId;
-    
+       
     @TestSetUp
     public static void dataSetUp(){
         
-        Contact c = new Contact(FirstName = 'test', lastName = 'Contact');
+        UserRole userrole = [Select Id, DeveloperName From UserRole Where DeveloperName = 'CEO' Limit 1];
+
+        User adminUser = [Select Id, UserRoleId From User Where Profile.Name='System Administrator' Limit 1];
+        
+        adminUser.UserRoleId = userRole.Id;
+        update adminUser;
+        
+        Account acc = new Account(name = 'Community');
+        insert acc;
+        
+        Contact c = new Contact(AccountId = acc.Id, FirstName = 'test', lastName = 'Contact');
         insert c;
         
-        communityProfileId = [SELECT Id FROM Profile WHERE Name = 'Customer Community User'].Id;
+        Id communityProfileId = [SELECT Id FROM Profile WHERE Name like 'Customer Community%' LIMIT 1].Id;
         String randomNumString = String.valueOf(Math.random() * 10000);
+        
+        System.runAs(adminUser){
+            User comUser = new User();
+            comUser.LastName = 'Testing';
+            comUser.Alias = 'Testing';
+            comUser.Email = 'communityUser@test.com';
+            comUser.Username = randomNumString + '@test' + randomNumString + '.com';
+            comUser.CommunityNickname = comUser.LastName + randomNumString;
+            comUser.EmailEncodingKey = 'UTF-8';
+            comUser.ProfileId = communityProfileId;
+            comUser.LanguageLocaleKey = 'en_US';
+            comUser.TimeZoneSidKey = 'America/Phoenix';
+            comUser.LocaleSidKey = 'en_US';
+            comUser.PortalRole = 'Manager';
     
-        User comUser = new User();
-        comUser.LastName = 'Testing';
-        comUser.Alias = 'Testing';
-        comUser.Email = 'testing@test.com';
-        comUser.Username = randomNumString + '@test' + randomNumString + '.com';
-        comUser.CommunityNickname = comUser.LastName + randomNumString;
-        comUser.EmailEncodingKey = 'UTF-8';
-        comUser.ProfileId = communityProfileId;
-        comUser.LanguageLocaleKey = 'en_US';
-        comUser.TimeZoneSidKey = 'America/Phoenix';
-        comUser.LocaleSidKey = 'en_US';
-
-        if (c.Id != null) {
-            comUser.ContactId = c.Id;
+            if (c.Id != null) {
+                comUser.ContactId = c.Id;
+            }
+        
+            insert comUser;
         }
-    
-        insert comUser;
         
     }
     @isTest
 	public static void validate_updateCommunityContacts(){
-        User communityUser = [select Id, ContactId from User where ProfileId =: communityProfileId];
+        Test.startTest();
+        User communityUser = [select Id, ContactId from User where Email = 'communityUser@test.com'];
         communityUser.Street = '1002 Maple Street';
         communityUser.City = 'New York';
         communityUser.State = 'New York';
@@ -42,6 +55,7 @@ public class UserTriggerTest {
         
         update communityUser;
         
+        Test.stopTest();
         Contact updatedContact = [select Id, MailingStreet, MailingCity, MailingState, MailingCountry, MailingPostalCode
                                  from Contact where Id =: communityUser.ContactId];
         
